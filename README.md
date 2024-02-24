@@ -1,3 +1,5 @@
+![image](https://github.com/Regis-Loyaute/hetzner-proxmox-pfsense/assets/84942989/2e8725a6-4ec0-4d49-bcc3-0638d274999c)
+
 This guide is part of a multi articles guide on how to install and configure Proxmox on a dedicated server, secure the hypervisor behind a virtual firewall, deploy some monitoring services, setup a virtual machine backup solution, expose some services using a reverse proxy and much more.
 
 # Introduction
@@ -7,8 +9,6 @@ In this first guide, we're going to approach the method of how to install Proxmo
 ## Install Proxmox
 
 We will approach the installation process first by seeing how to install Proxmox using the official ISO by using a QEMU machine, then securing hypervisor by implementing some SSH security measures.
-
-Here's the hardware specifications that will be used in this guide.
 
 Some prerequisites are needed before diving into the installation process, download the Proxmox ISO from the official repository:
 ```
@@ -47,6 +47,7 @@ You can now use any VNC client by and use 127.0.0.1 as the host address and for 
 I will be using a raid1 configuration in this tutorial to mirror my Proxmox boot installation.
 
 Now that we are in the Network Configuration step, use your notes that we took earlier to fill in the addresses.
+![image](https://github.com/Regis-Loyaute/hetzner-proxmox-pfsense/assets/84942989/20894a45-492b-40b5-a758-146bc289f616)
 
 Press on reboot and close the session once it’s done. The reason to do that is that Proxmox is currently being virtualized therefore we are going to need to make some modifications on the network side. Run this command to create a virtual machine once again but this time it will boot directly onto the disks.
 ```
@@ -238,8 +239,10 @@ First, backup your current network configuration files.
 cp /etc/network/interfaces /etc/network/interfaces.cp  
 ```
 Create a first linux bridge by clicking on "Create/Linux Bridge" in the network configuration area on Proxmox, the first virtual bridge will access to the WAN network, and a second one for the LAN network.
+![image](https://github.com/Regis-Loyaute/hetzner-proxmox-pfsense/assets/84942989/d17c517d-eb54-4204-9fd7-50cf69fabe9d)
 
 I am using a /30 CIDR which means only 2 IPs, to restrict how much IP there is available in case someone manages to access the WAN network there won't be any IP left to take.
+![image](https://github.com/Regis-Loyaute/hetzner-proxmox-pfsense/assets/84942989/eb8687bd-76e6-4354-8619-417f12f163f5)
 
 For the LAN side, i chose a /24 CIDR in order to have plenty of room for how much virtual machines you want to deploy.
 
@@ -248,6 +251,7 @@ To apply the network modification that we just made without rebooting we need to
 apt install ifupdown2   
 ```
 Once installed you can now click on "Apply Configuration'' for the changes to take effect.
+![image](https://github.com/Regis-Loyaute/hetzner-proxmox-pfsense/assets/84942989/a1ef94e0-ef28-4837-a9b9-66e924043c2e)
 
 Installing and configuring pfSense
 
@@ -263,7 +267,7 @@ openssl dgst -sha256 pfSense-CE-2.5.1-RELEASE-amd64.iso.gz  
 
 gunzip pfSense-CE-2.5.1-RELEASE-amd64.iso.gz  
 ```
-Create the pfSense virtual machine as shown below:
+Create the pfSense virtual machine:
 
 Choose vmbr1 as the first network interface for the WAN interface and finish the creation process.
 
@@ -381,16 +385,16 @@ If you go on the pfSense interface and look at the Firewall/System Logs, you can
 
 ## IPTABLES
 
-Now that the base of our script is working, we will continue to add iptables rules. As it is quite long, I will explain it to you step by step. For those who want the full version of the file right away, it's available here.
+Now that the base of our script is working, we will continue to add iptables rules. As it is quite long, I will explain it to you step by step. For those who want the full version of the file right away, it's available [here](https://github.com/Regis-Loyaute/proxmox-iptables-hetzner).
 
 Note: The big problem with iptables and firewall rules in general is that even when you're an expert, if you've ever messed up (or for one reason or another, the commands I give are not 100% compatible in your context there is a small subtlety) you risk cutting yourself off from your server.
 
 A safe way to limit this kind of risk is to do the following every time you make a change:
 
 Backup these 3 files:  
-
+```
 /etc/network/interfaces /root/pfsense-route.sh /root/iptables.sh  
-
+```
 Disable/delete the lines with the post-up /root/pfsense-route.sh and/or /root/pfsense-route.sh in /etc/network/interfaces, which will allow you to regain control after a reboot.
 
 Run the script by hand for the first time, then reboot only IF EVERYTHING is working properly!
