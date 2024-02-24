@@ -1,47 +1,47 @@
 This guide is part of a multi articles guide on how to install and configure Proxmox on a dedicated server, secure the hypervisor behind a virtual firewall, deploy some monitoring services, setup a virtual machine backup solution, expose some services using a reverse proxy and much more.
 
-Introduction
+# Introduction
 
 In this first guide, we're going to approach the method of how to install Proxmox on a dedicated server without having access to a IPMI interface, my server is hosted by Hetzner and they sadly do not offer to have access to it but instead they offer to install Proxmox with an installing tool which possess an already configured image without having the option to use ZFS. In consequences we are going to see an another solution.
 
-Install Proxmox
+## Install Proxmox
 
 We will approach the installation process first by seeing how to install Proxmox using the official ISO by using a QEMU machine, then securing hypervisor by implementing some SSH security measures.
 
 Here's the hardware specifications that will be used in this guide.
 
 Some prerequisites are needed before diving into the installation process, download the Proxmox ISO from the official repository:
-
+```
 wget -O proxmox.iso http://download.proxmox.com/iso/proxmox-ve_7.1-2.iso -O proxmox.iso  
-
+```
 Before starting the KVM machine we will need to take note of the network configuration which is going to be needed later to setup Proxmox, here are the commands needed:
 
 For your public IP address:
-
+```bash
 ip a  
-
+```
 And to find your gateway:
-
+```bash
 ip route | grep default  
-
+```
 Find your network adapter which is most likely called "eth0". Then use this command and replace ADAPTATER_NAME by yours:
-
+```bash
 udevadm info -q all -p /sys/class/net/ADAPTATER_NAME | grep ID_NET_NAME  
-
+```
 The command should return something like the example below.
-
+```
 E: ID_NET_NAME_PATH=enp2s0  
-
+```
 Write that down, we'll also need it later.
 
 Let’s create and run the KVM machine with the Proxmox ISO that we downloaded earlier and mount the disks where Proxmox will be installed replace sda and sdb by the names of your disks with the help of the lsblk command.
-
+```
 qemu-system-x86_64 -enable-kvm -smp 4 -m 4096 -boot d -cdrom proxmox.iso -drive file=/dev/sda,format=raw,media=disk -drive file=/dev/sdb,format=raw,media=disk -vnc 127.0.0.1:1  
-
+```
 While running VM, we are going to connect into it by creating a ssh tunnel. Open a new tab and run this command:
-
+```
 ssh -L 8888:127.0.0.1:5901 root@YOUR_IP_ADRESS  
-
+```
 You can now use any VNC client by and use 127.0.0.1 as the host address and for the port 8888.
 
 I will be using a raid1 configuration in this tutorial to mirror my Proxmox boot installation.
@@ -49,15 +49,15 @@ I will be using a raid1 configuration in this tutorial to mirror my Proxmox boot
 Now that we are in the Network Configuration step, use your notes that we took earlier to fill in the addresses.
 
 Press on reboot and close the session once it’s done. The reason to do that is that Proxmox is currently being virtualized therefore we are going to need to make some modifications on the network side. Run this command to create a virtual machine once again but this time it will boot directly onto the disks.
-
+```
 qemu-system-x86_64 -enable-kvm -smp 4 -m 4096 -drive file=/dev/sda,format=raw,media=disk -drive file=/dev/sdb,format=raw,media=disk -vnc 127.0.0.1:1  
-
+```
 Once you are on the shell, enter your credentials then edit the network interfaces file:
-
+```
 nano /etc/network/interfaces  
-
+```
 The file should look like this.
-
+```
 auto lo
 
  iface lo inet loopback
@@ -79,9 +79,9 @@ auto lo
    bridge_stp off
 
    bridge_fd 0
-
+```
 Replace the "ens3" instances by the network adapter name that we wrote down earlier, in my case it was "enp2s0".
-
+```
 auto lo
 
  iface lo inet loopback
@@ -103,60 +103,60 @@ auto lo
    bridge_stp off
 
    bridge_fd 0
-
+```
 Once the network interfaces configured, you can quit QEMU and restart your dedicated server. If no mistakes were made in the network configuration process you should have access to your Proxmox web interface by typing https://YOUR_PUBLIC_ADRESS:8006 in your browser.
 
-Setup Proxmox
-
+## Setup Proxmox
+```
 nano /etc/apt/sources.list.d/pve-enterprise.list  
-
+```
 Then comment out the following line to avoir using the enterprise repository.
-
+```
 # deb https://enterprise.proxmox.com/debian/pve buster pve-enterprise  
-
+```
 And add this line to use the non-subscription repository.
 
 Do the same for the ceph list as well.
-
+```
 nano /etc/apt/sources.list  
 
 deb http://download.proxmox.com/debian buster pve-no-subscription  
-
+```
 Finally, we can now check if there is any update and if so install them.
-
+```
 apt-get update
 
 apt-get dist-upgrade -y
-
+```
 https://pve.proxmox.com/wiki/Package_Repositories
 
-Basic security
+## Basic security
 
 Now that Proxmox is operational and exposed to the entire Internet, we will need to do establish some basic security to have some peace of mind. I'll create a new user with sudo authority to avoid using the root user then configure the ssh server with some tweaking such as disable root login, changing the default ssh port and using a ssh key to connect to my admin account.
 
 I also like to install fail2ban to avoid any bruteforce attempt on the ssh server and on the Proxmox web interface.
 
 First, create a new user with sudo permissions:
-
+```
 adduser chad-user
 usermod -aG sudo chad-user
-
+```
 Connect to your newly created user by typing: 
-
+```
 su - chad-user  
-
+```
 Make a new directory which will contain the ssh key file and change the folder permission:
-
+```
 mkdir ~/.ssh
 chmod 700 ~/.ssh
-
+```
 Now let's create the ssh key file and change the file permission:
-
+```
 nano ~/.ssh/authorized_keys ## write your key inside
 chmod 600 ~/.ssh/authorized_keys
-
+```
 Make some changes into the ssh server parameters file by replacing the default values with the example below:
-
+```
 nano /etc/ssh/sshd_config  ## Change your default ssh port
 
 Port 69420
@@ -168,21 +168,21 @@ PermitRootLogin no
 ## Disable password login which is not needed anymore with the key
 
 PasswordAuthentication no
-
+```
 Restart the ssh server to apply the modification that we just made:
-
+```
 /etc/init.d/ssh restart  
-
+```
 To add another layer of security, fail2ban does a great job at blocking bruteforce attack by banning the IP address after as many attempts you configure it to. Let's install the service first.
-
+```
 apt install fail2ban  
-
+```
 Then you can configure it in the follow file:
-
+```
 nano /etc/fail2ban/jail.local  
-
+```
 Once inside this file, there are several parameters that you can configure like you want such as the ban time length, the number of logins attempts and if you want to be notified by email. Here's what a typical config looks like.
-
+```
 [DEFAULT]
 
 bantime = 84600
@@ -202,7 +202,7 @@ action = %(action_mwl)s
 enabled = true
 
 port = 69420
-
+```
 Bantime is the ban length, i chose 84600 seconds but you can change it to suit your taste.
 
 Findtime defines in seconds the time since which an anomaly is searched for in the logs, it is recommended to not choose a high value otherwise the quantity of logs to be analyzed could become exceptionally large and therefore have an impact on performance.
@@ -212,7 +212,7 @@ Maxretry is the amount of login attempt that is allowed before getting banned.
 In the sshd section, we decide that fail2ban is enabled and change the ssh port to yours.
 
 If you want to be extra careful, you can also apply fail2ban to the Proxmox interface. It won't be needed in the future as the Proxmox interface will only be accessible through a VPN but if you plan to expose it publicly then i suggest you to do that.
-
+```
 [proxmox]
 
 enabled = true
@@ -226,17 +226,17 @@ logpath = /var/log/daemon.log
 maxretry = 3
 
 bantime = 3600
-
+```
 Now restart the fail2ban service to apply the configuration we just made: 
-
+```
 systemctl restart fail2ban   
-
-Proxmox bridge configuration
+```
+## Proxmox bridge configuration
 
 First, backup your current network configuration files.
-
+```
 cp /etc/network/interfaces /etc/network/interfaces.cp  
-
+```
 Create a first linux bridge by clicking on "Create/Linux Bridge" in the network configuration area on Proxmox, the first virtual bridge will access to the WAN network, and a second one for the LAN network.
 
 I am using a /30 CIDR which means only 2 IPs, to restrict how much IP there is available in case someone manages to access the WAN network there won't be any IP left to take.
@@ -244,9 +244,9 @@ I am using a /30 CIDR which means only 2 IPs, to restrict how much IP there is a
 For the LAN side, i chose a /24 CIDR in order to have plenty of room for how much virtual machines you want to deploy.
 
 To apply the network modification that we just made without rebooting we need to install ifupdown2:
-
+```
 apt install ifupdown2   
-
+```
 Once installed you can now click on "Apply Configuration'' for the changes to take effect.
 
 Installing and configuring pfSense
@@ -254,7 +254,7 @@ Installing and configuring pfSense
 Currently the hypervisor is on the front line and pfSense is retreated behind it, however the end goal is to have pfSense on the front line and having Proxmox to act as just as a router from a network standpoint.
 
 Here's how to download the pfSense iso directly into Proxmox image folder if you have a pretty slow upload speed like me:
-
+```
 cd /var/lib/vz/template/iso  
 
 wget https://frafiles.pfsense.org/mirror/downloads/pfSense-CE-2.5.1-RELEASE-amd64.iso.gz  
@@ -262,7 +262,7 @@ wget https://frafiles.pfsense.org/mirror/downloads/pfSense-CE-2.5.1-RELEASE-amd6
 openssl dgst -sha256 pfSense-CE-2.5.1-RELEASE-amd64.iso.gz  
 
 gunzip pfSense-CE-2.5.1-RELEASE-amd64.iso.gz  
-
+```
 Create the pfSense virtual machine as shown below:
 
 Choose vmbr1 as the first network interface for the WAN interface and finish the creation process.
@@ -280,7 +280,7 @@ For the LAN interface choose vtnet1, which correspond to vmbr2.
 We need to attribute ip address to the interfaces, type 2 to select the option to do that.
 
 Let's start with the WAN interface, type 1 to choose it and here's how i've configured it:
-
+```
 DHCP : no
 
 IPv4 : 10.0.0.2
@@ -308,11 +308,11 @@ IPv6 : leave empty and press enter
 Activate the DHCP server : no
 
 Do you want to revert HTTP as the webConfigurator protocol? no
-
+```
 You can now have access to the pfSense web interface either from a VM located within the LAN or by creating a ssh tunnel and redirect the https port.
-
+```
 ssh chad-user@PROXMOX_PUB_IP -p 42069 -L 127.0.0.1:8443:192.168.5.254:443  
-
+```
 Now you can have access to your pfSense web interface with the following address https://localhost:8443.
 
 You can follow the configuration wizard and let almost everything by except for the 4th step, it is important to uncheck the "Block RFC1918 Private Networks".
@@ -322,11 +322,11 @@ The reason is this option will block packets that arrive from a private network 
 And since our WAN is precisely on a private network therefore this choice will block everything.
 
 Creating a VM which will serve the purpose of testing the LAN side is also needed, in my case i choose to use Ubuntu virtual machine.
-
+```
 cd /var/lib/vz/template/iso 
 
 wget https://releases.ubuntu.com/20.10/ubuntu-20.10-desktop-amd64.iso   
-
+```
 As for the network interface, be careful to pick the right one which is vmbr2 which corresponds to the LAN.
 
 Either way, if you connect into the WAN, there will be no IP available.
@@ -340,7 +340,7 @@ You may have noticed that the virtual machine doesn’t have access to internet,
 Let's create a route on the hypervisor which will allow to redirect every packet going to the LAN has to go through the WAN pfSense interface. This rule makes it as if pfSense is in the frontline, before entering the LAN.
 
 We create a /root/pfsense-route.sh file with the following command.
-
+```
 cat > /root/pfsense-route.sh << EOF
 
 #!/bin/sh
@@ -354,9 +354,9 @@ echo 1 > /proc/sys/net/ipv4/ip_forward
 ip route change 192.168.5.0/24 via 10.0.0.2 dev vmbr1
 
 EOF
-
+```
 For this file to launch automatically as soon as we boot, we run the command chmod +x /root/pfsense-route.sh and we will add at the end of the /etc/network/interfaces file the line post-up/root/pfsense-route.sh at the end of the vmbr2 config block, just before the #LAN comment: 
-
+```
 […]
 
  auto vmbr2
@@ -374,12 +374,12 @@ For this file to launch automatically as soon as we boot, we run the command chm
  post-up /root/pfsense-route.sh
 
  LAN
-
+```
 Now if you run the /root/pfsense-route.sh script and try to ping the hypervisor from the Ubuntu VM or the other way around that shouldn't work. It means the packets are trying to go through pfSense, but it is blocking them.
 
 If you go on the pfSense interface and look at the Firewall/System Logs, you can see the pings that have been blocked.
 
-IPTABLES
+## IPTABLES
 
 Now that the base of our script is working, we will continue to add iptables rules. As it is quite long, I will explain it to you step by step. For those who want the full version of the file right away, it's available here.
 
@@ -402,13 +402,13 @@ Note: Do not run these instructions one at a time either. The first thing we do 
 Define variables
 
 We will first export the variables that will be present in the scripts such as your public IP address and your ssh port.
-
+```
 export PUBIP=YOUR_PUB_IP
 
 export SSHPORT=42069
-
+```
 Then create the IPTABLES script by running the following command:
-
+```
 cat > /root/iptables.sh << EOF
 
 #!/bin/sh
@@ -460,7 +460,7 @@ ProxVmPrivIP="192.168.5.1"
 PfsVmWanIP="10.0.0.2"
 
 EOF
-
+```
 We here define the variables which will be used multiple times in the script. Make sure that the PublicIP=''' does indeed hold your public IP address.
 
 Drop everything and start anew
@@ -472,7 +472,7 @@ Allow localhost connections.
 We do not stop existing connections. Like your SSH connection for example.
 
 And we allow ping which is useful for troubleshooting.
-
+```
 cat >> /root/iptables.sh << EOF
 
 # ---------------------
@@ -586,7 +586,7 @@ iptables -A TCP -i \$PrxPubVBR -d \$PublicIP -p tcp --dport ${SSHPORT} -j ACCEPT
 iptables -A TCP -i \$PrxPubVBR -d \$PublicIP -p tcp --dport 8006 -j ACCEPT
 
 EOF
-
+```
 Check that line just below "# Allow SSH server" which should have the port you are using for SSH.
 
 We will not need those rules later but instead, we will connect to the VPN and from there we will have access to SSH or Proxmox.
@@ -594,7 +594,7 @@ We will not need those rules later but instead, we will connect to the VPN and f
 Outgoing
 
 Then we add the outgoing packets:
-
+```
 cat >> /root/iptables.sh << EOF  ### OUTPUT RULES
 
 # ---------------
@@ -626,7 +626,8 @@ iptables -A OUTPUT -o \$PrxPubVBR -s \$PublicIP -p tcp --sport ${SSHPORT} -j ACC
 iptables -A OUTPUT -o \$PrxPubVBR -s \$PublicIP -p tcp --sport 8006 -j ACCEPT
 
 EOF
-
+```
+```
 cat >> /root/iptables.sh << EOF
 
 MASQUERADE MANDATORY
@@ -636,7 +637,7 @@ Allow WAN network (PFSense) to use vmbr0 public adress to go out
 iptables -t nat -A POSTROUTING -s \$VmWanNET -o \$PrxPubVBR -j MASQUERADE
 
 EOF
-
+```
 First, we allow the pings to go out. This rule is redundant with another previous one where pings in all directions were allowed.
 
 The idea is that the previous rule is very permissive in order to be able to debug. But it will not stay for too long.
@@ -648,7 +649,7 @@ Then I allow the HTTP and HTTPS packets to go out. This is what will give us acc
 Forward
 
 Finally, we route all the traffic to the pfSense:
-
+```
 cat >> /root/iptables.sh << EOF  ### FORWARD RULES
 
 # ----------------
@@ -674,7 +675,7 @@ iptables -A FORWARD -i \$PrxPubVBR -d \$PfsVmWanIP -o \$PrxVmWanVBR -p udp -j AC
 iptables -A FORWARD -i \$PrxVmWanVBR -s \$VmWanNET -j ACCEPT
 
 EOF
-
+```
 The beginning is a pre-routing rule. This means that the action takes place on the packet before anything else. For example, if someone tries to connect to port 3812 of your Nextcloud, we do not necessarily want to drop it. This kind of decision will be the future job of pfSense. Without the pre-routing rule, the packet would be dropped by default.
 
 So instead, we send it to pfSense.
@@ -692,17 +693,17 @@ We now have everything we need for VMs to have access to the Internet.
 MASQUERADE
 
 This part allows a machine on a local network to access the Internet without having a public IP.
-
+```
 cat >> /root/iptables.sh << EOF  ### MASQUERADE MANDATORY
 
 iptables -t nat -A POSTROUTING -s \$VmWanNET -o \$PrxPubVBR -j MASQUERADE
 
 EOF
-
+```
 From there the script is ready. Try to run it and if you do not throw yourself out, well done.
-
+```
 chmod +x /root/iptables.sh
-
+```
 Now your LAN is connected to the Internet.
 
 Hosting services
@@ -714,7 +715,7 @@ Let's go to the VM, and in the terminal we install nginx: sudo apt install nginx
 Once the installation is done, verify that the server is working properly by going to http://localhost from the VM. You should see the nginx welcome screen.
 
 Now, we want to get to this page from the Internet. In order to do that, we will go to the configuration of the pfSense, and click on Firewall / NAT, then add:
-
+```
 Interface : WAN
 
 Protocol : TCP
@@ -734,17 +735,17 @@ Validate and apply the changes.
 Now try to access the follow URL:
 
 http://YOUR_PUBLIC_IP.com:7000
-
-VPN
+```
+## VPN
 
 The idea is that we are going to create a new virtual network: 10.2.2.0/24. The pfSense will be in this virtual network. And we will be able to connect to this virtual network, so that our pc will have a private IP of type 10.2.2.2 (10.2.2.1 will be reserved for the pfSense).
 
 And from within the vpn, you can access the LAN through the pfSense.
 
-Creation of the authority certificate
+### Creation of the authority certificate
 
 In pfSense, click on System / Cert. Manager then add:
-
+```
 Descriptive Name : The authority certificate
 
 Method : Create an internal Certificate Authority
@@ -778,11 +779,11 @@ Lifetime : 3650
 Common Name : vpn.homelab.localdomain
 
 Certificate Type : Server Certificates
-
-Creation of the client certificate
+```
+### Creation of the client certificate
 
 We create a new certificate, but change the type at the end:
-
+```
 Method : Create an internal Certificate
 
 Descriptive Name : VPN client
@@ -798,13 +799,13 @@ Lifetime : 3650
 Common Name : vpn-client.homelab.localdomain
 
 Certificate Type : User Certificates
-
+```
 We are done for the certificate’s creation process.
 
-VPN server setup
+### VPN server setup
 
 Let’s move onto VPN/OpenVPN and then add the following parameters:
-
+```
 Server mode : Remote Access (SSL/TLS + User Auth)
 
 Protocol : UDP
@@ -832,28 +833,28 @@ Redirect IPv4 Gateway : Checked. This box will allow you to access the internet
 Concurrent connections : Put the number corresponding to the number of devices you will connect simultaneously.
 
 Dynamic IP : Tick the box.
-
+```
 And we are done for this part.
 
 Now, we’ll also need to create a user for the authentication process.
 
 Go to System/User manager then add:
-
+```
 Disabled : Leave it unchecked
 
 Username : chad-user
 
 Password : superhardpassword
-
+```
 Save. Then go back to edit the user and add the client certificate that we created earlier to him.
 
 In User Certificates, click Add, then:
-
+```
 Method : Choose an existing certificate
 
 Existing Certificate : VPN client
-
-Client configuration
+```
+### Client configuration
 
 You can easily export a configuration file to automatically configure your VPN client, whether on Windows, Mac, Linux, Android with the help of a package that you can install on pfSense.
 
@@ -862,19 +863,19 @@ Go to System / Package Manager, then Available Packages, and type openvpn-client
 The click on the install icon.
 
 Return to VPN / OpenVPN, and we find the new Client Export tab.
-
+```
 Remote Access Server : My VPN
 
 Host Name Resolution : Other - and write the public IP of your server
 
 Use Random Local Port : Tick the box
-
+```
 We will add a route for the VPN. Go back to the /root/pfsense-route.sh file and add this line:
-
+```
 ip route add 10.2.2.0/24 via 10.0.0.2 dev vmbr1
-
+```
 pfSense must accept these packages as well. In the interface, we add two rules. The first says to accept packets in UDP which are destined for the pfSense on the port of the V-PN:
-
+```
 Action : Pass
 
 Interface : WAN
@@ -890,9 +891,9 @@ Destination : WAN net
 Destination port range : 18223 (your VPN port)
 
 Description : Access to the VPN from the Internet
-
+```
 You also need to add this rule to have access to the internet while being connect to the vpn:
-
+```
 Action : Pass
 
 Interface : OpenVPN
@@ -906,7 +907,7 @@ Source : Network – 10.2.2.0/24
 Destination : Any
 
 Description : Access to the Internet from the VPN
-
+```
 Accessing the internet while being connected to the VPN is now possible.
 
 Now that the VPN server is up and running. We can now deactivate the public access to the Proxmox interface.
@@ -916,9 +917,9 @@ First, redirect port 8006 to pfSense (removing the exception in iptables). This 
 Second, Allow access to port 8006 of the Proxmox server from the pfSense. This will allow access from the VPN.
 
 In the iptables file, we will edit the following line:
-
+```
 iptables -A PREROUTING -t nat -i $PrxPubVBR -p tcp --match multiport ! --dports 21153,8006 -j DNAT --to $PfsVmWanIP  
-
+```
 Simply remove 8006. And execute the file. Now you no longer have access to the Proxmox web interface at all.
 
 At the end of the iptables script, we add the following instruction: service fail2ban restart.
@@ -975,5 +976,6 @@ If you suspect that it got through, then look at where it went by sniffing the p
 
 A problem with the VPN? The logs are in Status / System Logs, then OpenVPN.
 
-
+```
 https://homelabing.fr/installing-hetzner-proxmox-pfsense/
+```
