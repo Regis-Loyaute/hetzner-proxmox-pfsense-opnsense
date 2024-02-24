@@ -253,7 +253,7 @@ apt install ifupdown2   
 Once installed you can now click on "Apply Configuration'' for the changes to take effect.
 ![image](https://github.com/Regis-Loyaute/hetzner-proxmox-pfsense/assets/84942989/a1ef94e0-ef28-4837-a9b9-66e924043c2e)
 
-Installing and configuring pfSense
+## Installing and configuring pfSense
 
 Currently the hypervisor is on the front line and pfSense is retreated behind it, however the end goal is to have pfSense on the front line and having Proxmox to act as just as a router from a network standpoint.
 
