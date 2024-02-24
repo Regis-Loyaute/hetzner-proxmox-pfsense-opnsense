@@ -17,15 +17,15 @@ wget -O proxmox.iso http://download.proxmox.com/iso/proxmox-ve_7.1-2.iso -O prox
 Before starting the KVM machine we will need to take note of the network configuration which is going to be needed later to setup Proxmox, here are the commands needed:
 
 For your public IP address:
-```bash
+```
 ip a  
 ```
 And to find your gateway:
-```bash
+```
 ip route | grep default  
 ```
 Find your network adapter which is most likely called "eth0". Then use this command and replace ADAPTATER_NAME by yours:
-```bash
+```
 udevadm info -q all -p /sys/class/net/ADAPTATER_NAME | grep ID_NET_NAME  
 ```
 The command should return something like the example below.
@@ -239,9 +239,11 @@ First, backup your current network configuration files.
 cp /etc/network/interfaces /etc/network/interfaces.cp  
 ```
 Create a first linux bridge by clicking on "Create/Linux Bridge" in the network configuration area on Proxmox, the first virtual bridge will access to the WAN network, and a second one for the LAN network.
+
 ![image](https://github.com/Regis-Loyaute/hetzner-proxmox-pfsense/assets/84942989/d17c517d-eb54-4204-9fd7-50cf69fabe9d)
 
 I am using a /30 CIDR which means only 2 IPs, to restrict how much IP there is available in case someone manages to access the WAN network there won't be any IP left to take.
+
 ![image](https://github.com/Regis-Loyaute/hetzner-proxmox-pfsense/assets/84942989/eb8687bd-76e6-4354-8619-417f12f163f5)
 
 For the LAN side, i chose a /24 CIDR in order to have plenty of room for how much virtual machines you want to deploy.
@@ -403,8 +405,6 @@ In the situation where you do not have any access to your server anymore, reboot
 
 Note: Do not run these instructions one at a time either. The first thing we do is drop everything, then re-authorize little by little. Hence you have a good chance of blocking yourself by doing that.
 
-Define variables
-
 We will first export the variables that will be present in the scripts such as your public IP address and your ssh port.
 ```
 export PUBIP=YOUR_PUB_IP
@@ -465,9 +465,9 @@ PfsVmWanIP="10.0.0.2"
 
 EOF
 ```
-We here define the variables which will be used multiple times in the script. Make sure that the PublicIP=''' does indeed hold your public IP address.
+We here define the variables which will be used multiple times in the script. Make sure that the PublicIP='' does indeed hold your public IP address.
 
-Drop everything and start anew
+### Drop everything and start anew
 
 Next, we create chains that will capture all new TCP and UDP connections, respectively then we add some basic rules:
 
@@ -560,15 +560,15 @@ iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 iptables -A INPUT -p icmp --icmp-type 8 -m conntrack --ctstate NEW -j ACCEPT
 
 EOF
-
-Ingoing
+```
+### Ingoing
 
 Those rules will dictate the vmbr0 interface which linked us to the Internet. We add 2 following rules that are for incoming packets:
 
 We authorize new connections on the SSH port which go through vmbr0 and whose destination is our public IP.
 
 We allow new connections on port 8006 which go through vmbr0 and whose destination is our public IP.
-
+```
 cat >> /root/iptables.sh << EOF
 
 # --------------------
@@ -595,7 +595,7 @@ Check that line just below "# Allow SSH server" which should have the port you a
 
 We will not need those rules later but instead, we will connect to the VPN and from there we will have access to SSH or Proxmox.
 
-Outgoing
+### Outgoing
 
 Then we add the outgoing packets:
 ```
@@ -650,7 +650,7 @@ On the other hand, allowing an outgoing ping, it can still be used on occasion, 
 
 Then I allow the HTTP and HTTPS packets to go out. This is what will give us access to the internet. Besides, you can try. Ping 1.1.1.1 before entering these new rules, it should be blocked, then try again after entering these new rules, and it should work!
 
-Forward
+### Forward
 
 Finally, we route all the traffic to the pfSense:
 ```
@@ -694,7 +694,7 @@ To summarize: A package comes from the Internet. We pre-route him to pfSense. We
 
 We now have everything we need for VMs to have access to the Internet.
 
-MASQUERADE
+## MASQUERADE
 
 This part allows a machine on a local network to access the Internet without having a public IP.
 ```
@@ -710,7 +710,7 @@ chmod +x /root/iptables.sh
 ```
 Now your LAN is connected to the Internet.
 
-Hosting services
+## Hosting services
 
 For the example here, we will use our Ubuntu Desktop VM. This is really as an example.
 
@@ -932,7 +932,7 @@ The iptables script does not start automatically at boot. So, if Proxmox restart
 
 To solve this, we will run apt install iptables-persistent and now the rules will persist after a reboot.
 
-How to debug
+## How to troubleshoot
 
 I don't necessarily expect EVERYTHING to work in this tutorial.
 
@@ -942,7 +942,7 @@ But maybe you have a different machine or a different provider, you might even b
 
 So, I present in this section the tools I have learned and found especially useful for debugging.
 
-Trace your packages
+### Trace your packages
 
 When you try to ping a server, or just connect to it, and it doesn't work, it's frustrating.
 
@@ -960,17 +960,17 @@ You will see, or not, if a packet goes out or comes in. If it doesn't go out, it
 
 You can use this instruction on the hypervisor, on a VM, and also on the PFSense.
 
-Log iptables
+### Log iptables
 
 Is the iptable script dropping the packets you send?
 
 Add a statement to your script before the statement that potentially drops your packet. For example, add:
-
+```
 iptables -A OUTPUT -o vmbr1 -s 10.0.0.1 -p tcp -j LOG
-
+```
 The idea is to replace the end (ACCEPT) with LOG. And then the logs will be displayed in /var/log/syslog.
 
-Use the PFSense logs
+### Use the PFSense logs
 
 In the PFsense interface, you can go to Status / System Logs, then Firewall, to see all blocked connections. Does yours appear? Maybe you should create a rule. Yours doesn't appear? Then either it has passed, or it has not even arrived on the PFSense.
 
