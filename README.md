@@ -974,3 +974,6 @@ By clicking on the little +, you can easily add a rule specifically for the conn
 If you suspect that it got through, then look at where it went by sniffing the packets on the machine. Either with tcpdump or by going to Diagnostics/Packet Capture.
 
 A problem with the VPN? The logs are in Status / System Logs, then OpenVPN.
+
+
+https://homelabing.fr/installing-hetzner-proxmox-pfsense/
