@@ -1,6 +1,6 @@
 ![image](https://github.com/Regis-Loyaute/hetzner-proxmox-pfsense/assets/84942989/2e8725a6-4ec0-4d49-bcc3-0638d274999c)
 
-This guide is part of a multi articles guide on how to install and configure Proxmox on a dedicated server, secure the hypervisor behind a virtual firewall, deploy some monitoring services, setup a virtual machine backup solution, expose some services using a reverse proxy and much more.
+This guide is part of a multi articles guide on how to install and configure Proxmox on a dedicated server, secure the hypervisor behind a pfSense or OPNsense virtual firewall, deploy some monitoring services, setup a virtual machine backup solution, expose some services using a reverse proxy and much more. I will use pfSense in this tutorial.
 
 # Introduction
 
