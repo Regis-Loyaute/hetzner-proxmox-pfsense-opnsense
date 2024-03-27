@@ -12,7 +12,7 @@ We will approach the installation process first by seeing how to install Proxmox
 
 Some prerequisites are needed before diving into the installation process, download the Proxmox ISO from the official repository:
 ```
-wget -O proxmox.iso http://download.proxmox.com/iso/proxmox-ve_7.1-2.iso -O proxmox.iso  
+wget -O proxmox.iso http://download.proxmox.com/iso/proxmox-ve_8.1-2.iso -O proxmox.iso  
 ```
 Before starting the KVM machine we will need to take note of the network configuration which is going to be needed later to setup Proxmox, here are the commands needed:
 
@@ -263,11 +263,11 @@ Here's how to download the pfSense iso directly into Proxmox image folder if you
 ```
 cd /var/lib/vz/template/iso  
 
-wget https://frafiles.pfsense.org/mirror/downloads/pfSense-CE-2.5.1-RELEASE-amd64.iso.gz  
+wget https://frafiles.pfsense.org/mirror/downloads/pfSense-CE-2.7.2-RELEASE-amd64.iso.gz  
 
-openssl dgst -sha256 pfSense-CE-2.5.1-RELEASE-amd64.iso.gz  
+openssl dgst -sha256 pfSense-CE-2.7.2-RELEASE-amd64.iso.gz  
 
-gunzip pfSense-CE-2.5.1-RELEASE-amd64.iso.gz  
+gunzip pfSense-CE-2.7.2-RELEASE-amd64.iso.gz  
 ```
 Create the pfSense virtual machine:
 
@@ -303,7 +303,7 @@ Do you want to revert HTTP as the webConfigurator protocol? no
 
 And we configure the LAN interface by typing 2.
 
-IPv4 : 192.168.5.254
+IPv4 : 192.168.10.254
 
 Subnet bit count : 24
 
@@ -317,7 +317,7 @@ Do you want to revert HTTP as the webConfigurator protocol? no
 ```
 You can now have access to the pfSense web interface either from a VM located within the LAN or by creating a ssh tunnel and redirect the https port.
 ```
-ssh chad-user@PROXMOX_PUB_IP -p 42069 -L 127.0.0.1:8443:192.168.5.254:443  
+ssh chad-user@PROXMOX_PUB_IP -p 42069 -L 127.0.0.1:8443:192.168.10.254:443  
 ```
 Now you can have access to your pfSense web interface with the following address https://localhost:8443.
 
@@ -339,7 +339,7 @@ Either way, if you connect into the WAN, there will be no IP available.
 
 Go through the regular Ubuntu installation process and once you are logged in, go into the network settings, and change as shown below.
 
-I chose the IP 192.168.5.100 but you can choose anything you want as long it is within the IP range chosen for the LAN and the IP isn't already used by something else. The netmask is a /24 and the gateway is the pfSense IP address.
+I chose the IP 192.168.10.100 but you can choose anything you want as long it is within the IP range chosen for the LAN and the IP isn't already used by something else. The netmask is a /24 and the gateway is the pfSense IP address.
 
 You may have noticed that the virtual machine doesn’t have access to internet, we are going to address that issue further on.
 
@@ -357,7 +357,7 @@ echo 1 > /proc/sys/net/ipv4/ip_forward
 
 ##Redirect intended packets to LAN for the WAN pfSense interface
 
-ip route change 192.168.5.0/24 via 10.0.0.2 dev vmbr1
+ip route change 192.168.10.0/24 via 10.0.0.2 dev vmbr1
 
 EOF
 ```
@@ -369,7 +369,7 @@ For this file to launch automatically as soon as we boot, we run the command chm
 
  iface vmbr2 inet static
 
- address 192.168.5.1/24
+ address 192.168.10.1/24
 
  bridge-ports none
 
@@ -387,7 +387,7 @@ If you go on the pfSense interface and look at the Firewall/System Logs, you can
 
 ## IPTABLES
 
-Now that the base of our script is working, we will continue to add iptables rules. As it is quite long, I will explain it to you step by step. For those who want the full version of the file right away, it's available [here](https://github.com/Regis-Loyaute/proxmox-iptables-hetzner).
+Now that the base of our script is working, we will continue to add iptables rules. As it is quite long, I will explain it to you step by step. For those who want the full version of the file right away, see the iptables-script folder.
 
 Note: The big problem with iptables and firewall rules in general is that even when you're an expert, if you've ever messed up (or for one reason or another, the commands I give are not 100% compatible in your context there is a small subtlety) you risk cutting yourself off from your server.
 
@@ -441,7 +441,7 @@ VmWanNET="10.0.0.0/30"
 
 ## Network/Mmask of PrivNET
 
-PrivNET="192.168.5.0/24"
+PrivNET="192.168.10.0/24"
 
 ## Network/Mmask of VpnNET
 
@@ -457,7 +457,7 @@ ProxVmWanIP="10.0.0.1"
 
 ## Proxmox IP on the same network than VMs
 
-ProxVmPrivIP="192.168.5.1"
+ProxVmPrivIP="192.168.10.1"
 
 ## PFSense IP used by the firewall (inside VM)
 
@@ -728,7 +728,7 @@ Destination : Any
 
 Destination Port Range : 7000
 
-Redirect target IP : 192.168.5.100
+Redirect target IP : 192.168.10.100
 
 Redirect target port : 80
 
@@ -832,7 +832,7 @@ Encryption Algorithm : You can keep the default settings or change to a higher 
 
 IPv4 Tunnel Network : 10.2.2.0/24
 
-Redirect IPv4 Gateway : Checked. This box will allow you to access the internet through the VPN. Otherwise, you can specify the local network you want to access with the VPN (192.168.5.0/24 in our case).
+Redirect IPv4 Gateway : Checked. This box will allow you to access the internet through the VPN. Otherwise, you can specify the local network you want to access with the VPN (192.168.10.0/24 in our case).
 
 Concurrent connections : Put the number corresponding to the number of devices you will connect simultaneously.
 
