@@ -638,31 +638,27 @@ Then I allow the HTTP and HTTPS packets to go out. This is what will give us acc
 
 Finally, we route all the traffic to the pfSense:
 ```
-cat >> /root/iptables.sh << EOF  ### FORWARD RULES
+cat >> /root/iptables.sh <<EOF
+### FORWARD RULES
 
 # ----------------
 
-### Redirect (NAT) traffic from internet 
+### Redirect (NAT) traffic from internet
 
-# All tcp to PFSense WAN except ${SSHPORT}, 8006
-
-iptables -A PREROUTING -t nat -i \$PrxPubVBR -p tcp --match multiport ! --dports ${SSHPORT},8006 -j DNAT --to \$PfsVmWanIP
+# All tcp to PFSense WAN except \${SSHPORT}, 8006
+iptables -A PREROUTING -t nat -i \$PrxPubVBR -p tcp --match multiport ! --dports \${SSHPORT},8006 -j DNAT --to \$PfsVmWanIP
 
 # All udp to PFSense WAN
-
 iptables -A PREROUTING -t nat -i \$PrxPubVBR -p udp -j DNAT --to \$PfsVmWanIP
 
 # Allow request forwarding to PFSense WAN interface
-
 iptables -A FORWARD -i \$PrxPubVBR -d \$PfsVmWanIP -o \$PrxVmWanVBR -p tcp -j ACCEPT
-
 iptables -A FORWARD -i \$PrxPubVBR -d \$PfsVmWanIP -o \$PrxVmWanVBR -p udp -j ACCEPT
 
 # Allow request forwarding from LAN
-
 iptables -A FORWARD -i \$PrxVmWanVBR -s \$VmWanNET -j ACCEPT
-
 EOF
+
 ```
 The beginning is a pre-routing rule. This means that the action takes place on the packet before anything else. For example, if someone tries to connect to port 3812 of your Nextcloud, we do not necessarily want to drop it. This kind of decision will be the future job of pfSense. Without the pre-routing rule, the packet would be dropped by default.
 
@@ -682,11 +678,13 @@ We now have everything we need for VMs to have access to the Internet.
 
 This part allows a machine on a local network to access the Internet without having a public IP.
 ```
-cat >> /root/iptables.sh << EOF  ### MASQUERADE MANDATORY
+cat >> /root/iptables.sh <<EOF
+### MASQUERADE MANDATORY
 
 iptables -t nat -A POSTROUTING -s \$VmWanNET -o \$PrxPubVBR -j MASQUERADE
 
 EOF
+
 ```
 From there the script is ready. Try to run it and if you do not throw yourself out, well done.
 ```
