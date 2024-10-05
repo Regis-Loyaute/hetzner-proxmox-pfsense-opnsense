@@ -599,48 +599,32 @@ We will not need those rules later but instead, we will connect to the VPN and f
 
 Then we add the outgoing packets:
 ```
-cat >> /root/iptables.sh << EOF  ### OUTPUT RULES
+cat >> /root/iptables.sh <<EOF
+### OUTPUT RULES
 
 # ---------------
 
 # Allow ping out
-
 iptables -A OUTPUT -p icmp -j ACCEPT
 
 ### Proxmox Host as CLIENT
 
 # Allow HTTP/HTTPS
-
 iptables -A OUTPUT -o \$PrxPubVBR -s \$PublicIP -p tcp --dport 80 -j ACCEPT
-
 iptables -A OUTPUT -o \$PrxPubVBR -s \$PublicIP -p tcp --dport 443 -j ACCEPT
 
 # Allow DNS
-
 iptables -A OUTPUT -o \$PrxPubVBR -s \$PublicIP -p udp --dport 53 -j ACCEPT
 
 ### Proxmox Host as SERVER
 
-# Allow SSH 
+# Allow SSH
+iptables -A OUTPUT -o \$PrxPubVBR -s \$PublicIP -p tcp --sport \${SSHPORT} -j ACCEPT
 
-iptables -A OUTPUT -o \$PrxPubVBR -s \$PublicIP -p tcp --sport ${SSHPORT} -j ACCEPT
-
-# Allow PROXMOX WebUI 
-
+# Allow PROXMOX WebUI
 iptables -A OUTPUT -o \$PrxPubVBR -s \$PublicIP -p tcp --sport 8006 -j ACCEPT
-
 EOF
-```
-```
-cat >> /root/iptables.sh << EOF
 
-MASQUERADE MANDATORY
-
-Allow WAN network (PFSense) to use vmbr0 public adress to go out
-
-iptables -t nat -A POSTROUTING -s \$VmWanNET -o \$PrxPubVBR -j MASQUERADE
-
-EOF
 ```
 First, we allow the pings to go out. This rule is redundant with another previous one where pings in all directions were allowed.
 
