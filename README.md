@@ -815,7 +815,7 @@ Encryption Algorithm : You can keep the default settings or change to a higher 
 
 IPv4 Tunnel Network : 10.2.2.0/24
 
-Redirect IPv4 Gateway : Checked. This box will allow you to access the internet through the VPN. Otherwise, you can specify the local network you want to access with the VPN (192.168.10.0/24 in our case).
+Redirect IPv4 Gateway : Checked. This box will allow you to access the internet through the VPN. Otherwise, you can specify the local network you want to access with the VPN, 192.168.10.0/24 in our case.
 
 Concurrent connections : Put the number corresponding to the number of devices you will connect simultaneously.
 
