@@ -398,7 +398,7 @@ Backup these 3 files:  
 ```
 /etc/network/interfaces /root/pfsense-route.sh /root/iptables.sh  
 ```
-Disable/delete the lines with the post-up /root/pfsense-route.sh and/or /root/pfsense-route.sh in /etc/network/interfaces, which will allow you to regain control after a reboot.
+Disable/delete the lines with the post-up /root/pfsense-route.sh and/or /root/iptables.sh in /etc/network/interfaces, which will allow you to regain control after a reboot.
 
 Run the script by hand for the first time, then reboot only IF EVERYTHING is working properly!
 
