@@ -263,7 +263,8 @@ Here's how to download the pfSense iso directly into Proxmox image folder if you
 ```
 cd /var/lib/vz/template/iso  
 
-wget https://frafiles.pfsense.org/mirror/downloads/pfSense-CE-2.7.2-RELEASE-amd64.iso.gz  
+wget [https://frafiles.pfsense.org/mirror/downloads/pfSense-CE-2.7.2-RELEASE-amd64.iso.gz](https://repo.ialab.dsu.edu/pfsense/pfSense-CE-2.7.2-RELEASE-amd64.iso.gz)  
+(https://repo.ialab.dsu.edu/pfsense/)
 
 openssl dgst -sha256 pfSense-CE-2.7.2-RELEASE-amd64.iso.gz  
 
